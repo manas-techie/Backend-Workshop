@@ -1,15 +1,31 @@
 // require('dotenv').config({ path: './env' });
 import dotenv from "dotenv";
-import connectDB from "./db/index.js";
-
+import connectDB from "./db/dbconfig.js";
+import { app } from "./app.js";
 
 
 dotenv.config({
     path: './env'
 })
 
+const PORT = process.env.PORT || 8000;
 
-connectDB();
+connectDB()
+    .then(() => {
+        app.on("error", (error) => {
+            console.log("ERROR: ", error);
+            throw error;
+        });
+
+        app.listen(PORT, () => {
+            console.log(`Server is running at port ${PORT}.`);
+
+        });
+    })
+    .catch((err) => {
+        console.log("MONGODB CONNECTION FAILDED !!!");
+
+    })
 
 
 
@@ -26,7 +42,7 @@ connectDB();
 
 
 /*
-//First Approach
+//First Approach using IIFE (immediately iinvoked function expression)
 
 import express from "express";
 

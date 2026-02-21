@@ -1,0 +1,74 @@
+==========================================================
+          MONGODB CHEAT SHEET FOR FEDORA (2026)
+==========================================================
+
+1. SERVICE MANAGEMENT (System Commands)
+----------------------------------------------------------
+Start MongoDB:        sudo systemctl start mongod
+Stop MongoDB:         sudo systemctl stop mongod
+Restart MongoDB:      sudo systemctl restart mongod
+Check if running:     sudo systemctl status mongod
+Enable start on boot: sudo systemctl enable mongod
+
+
+2. USER CREATION (Inside 'mongosh')
+----------------------------------------------------------
+Step A: Enter shell
+        $ mongosh
+
+Step B: Run these commands inside the shell
+
+        use admin
+
+        db.createUser({
+          user: "myAdminName",
+          pwd: "mySecretPassword",
+          roles: [
+            { role: "userAdminAnyDatabase", db: "admin" },
+            { role: "readWriteAnyDatabase", db: "admin" }
+          ]
+        })
+
+Step C: Enable Security
+
+        Edit config: sudo nano /etc/mongod.conf
+
+        Find #security, change to:
+        
+        security:
+          authorization: enabled
+        
+        Restart service: sudo systemctl restart mongod
+
+
+3. BACKEND CONNECTION URL (Node.js/Express)
+----------------------------------------------------------
+Standard URL Format:
+mongodb://<USER>:<PASS>@127.0.0.1:27017/<DB_NAME>?authSource=admin
+
+Example for .env file:
+MONGO_URI=mongodb://myAdminName:mySecretPassword@127.0.0.1:27017/my_app_db?authSource=admin
+
+
+4. BASIC DATABASE COMMANDS (Inside 'mongosh')
+----------------------------------------------------------
+Show all databases:      show dbs
+Switch/Create DB:        use myDatabaseName
+Show collections:        show collections
+Insert data:             db.users.insertOne({ name: "Manas", role: "Dev" })
+Find all data:           db.users.find()
+Find with filter:        db.users.find({ name: "Manas" })
+Delete a collection:     db.users.drop()
+Exit shell:              exit
+
+
+5. TROUBLESHOOTING (Common Fedora Fixes)
+----------------------------------------------------------
+If "Connection Refused": 
+- Run: sudo setenforce 0 (Temporarily disable SELinux)
+- Run: sudo systemctl restart mongod
+
+Check Logs:
+- sudo tail -n 20 /var/log/mongodb/mongod.log
+
+==========================================================
