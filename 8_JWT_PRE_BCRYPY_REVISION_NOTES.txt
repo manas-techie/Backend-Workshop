@@ -1,0 +1,68 @@
+================================================================================
+                  BACKEND CODE REVISION NOTES
+          (Authentication, JWT, and Mongoose Plugins)
+================================================================================
+
+1. PASSWORD ENCRYPTION (Mongoose Pre-save Hook)
+--------------------------------------------------------------------------------
+File: user.model.js
+
+Code:
+  userSchema.pre("save", async function (next) {
+      if (!this.isModified("password")) return next();
+      this.password = await bcrypt.hash(this.password, 10);
+      next();
+  });
+
+Key Concepts:
+  • pre("save"): Middleware that runs *before* a document is saved to DB.
+  • isModified("password"): Critical check. Only hash the password if it's
+    new or changed. Prevents re-hashing already hashed passwords.
+  • bcrypt.hash(pass, 10): Converts plain text "12345" into a secure hash
+    like "$2b$10$XyZ...". '10' is the salt rounds (cost factor).
+  • next(): Passes control to the next middleware or the actual save operation.
+
+
+2. PASSWORD VERIFICATION (Custom Method)
+--------------------------------------------------------------------------------
+File: user.model.js
+
+Code:
+  userSchema.methods.isPasswordCorrect = async function (password) {
+      return await bcrypt.compare(password, this.password);
+  }
+
+Key Concepts:
+  • methods: Adds custom functions to every user *instance* (document).
+  • bcrypt.compare(): Securely compares plain text input vs stored hash.
+    Returns true/false.
+
+
+3. JSON WEB TOKENS (JWT)
+--------------------------------------------------------------------------------
+File: user.model.js
+
+Code:
+  jwt.sign(payload, secret, options)
+
+Key Concepts:
+  • Access Token: Short-lived (e.g., 15m). Used to authenticate API requests.
+    Contains user data (id, email) in the payload.
+  • Refresh Token: Long-lived (e.g., 10d). Used to generate new Access Tokens
+    when the old one expires. Stored in DB and/or HTTP-only cookie.
+  • Payload: The data hidden inside the token (e.g., { _id: "..." }).
+
+
+4. AGGREGATION PAGINATION
+--------------------------------------------------------------------------------
+File: video.model.js
+
+Code:
+  videoSchema.plugin(mongooseAggregatePaginate);
+
+Key Concepts:
+  • Problem: Standard .find().limit() doesn't work well with complex
+    Aggregation Pipelines (joins, filtering, calculated fields).
+  • Solution: This plugin adds .aggregatePaginate() to the model.
+  • Usage: Allows you to paginate results *after* performing complex
+    operations like $lookup (joins) or $match.

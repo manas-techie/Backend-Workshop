@@ -1,0 +1,96 @@
+================================================================================
+             FILE UPLOAD REVISION GUIDE (Multer + Cloudinary)
+================================================================================
+
+1. THE TWO-STEP UPLOAD STRATEGY
+--------------------------------------------------------------------------------
+We use a two-step process to handle file uploads:
+   Step 1 (Multer):     Client -> Server (Local Temp Storage)
+   Step 2 (Cloudinary): Server -> Cloudinary (Permanent Storage)
+   Step 3 (Cleanup):    Delete file from Server
+
+
+2. MULTER MIDDLEWARE (The Gatekeeper)
+--------------------------------------------------------------------------------
+File: src/middlewares/multer.middleware.js
+
+Purpose: Handles `multipart/form-data` requests. Express cannot parse file uploads
+         by default; Multer adds `body` and `file`/`files` objects to the request.
+
+Configuration (diskStorage):
+   1. Destination: Where to save the file locally.
+      - Best Practice: Use absolute paths for cross-platform compatibility.
+      - Code: path.join(process.cwd(), "public", "temp")
+      - process.cwd(): Current Working Directory (Root of project).
+
+   2. Filename: What to name the saved file.
+      - Simple: file.originalname (Risk: Overwriting if names match).
+      - Robust: uniqueSuffix + file.originalname (Timestamp + Random #).
+
+Export:
+   export const upload = multer({ storage });
+
+
+3. CLOUDINARY UTILITY (The Cloud Uploader)
+--------------------------------------------------------------------------------
+File: src/utils/cloudinary.js
+
+Purpose: Takes the local file path, uploads it to Cloudinary, and handles cleanup.
+
+Key Logic Flow:
+   async (localFilePath) => {
+       try {
+           if (!localFilePath) return null;
+
+           // 1. Upload to Cloudinary
+           const response = await cloudinary.uploader.upload(localFilePath, {
+               resource_type: "auto"
+           });
+
+           // 2. Success: Delete local file & Return response
+           fs.unlinkSync(localFilePath);
+           return response;
+
+       } catch (error) {
+           // 3. Failure: Delete local file (prevent junk accumulation) & Return null
+           fs.unlinkSync(localFilePath);
+           return null;
+       }
+   }
+
+Key Methods:
+   - fs.unlinkSync(path): Deletes a file from the local filesystem.
+   - cloudinary.uploader.upload(path, options): Sends file to cloud.
+
+
+4. ROUTE IMPLEMENTATION
+--------------------------------------------------------------------------------
+File: src/routes/user.routes.js
+
+Usage: Inject the middleware *before* the controller.
+
+Methods:
+   - upload.single("field"): One file. Access via `req.file`.
+   - upload.array("field", maxCount): Multiple files, same field. Access via `req.files`.
+   - upload.fields([...]): Multiple files, different fields. Access via `req.files`.
+
+Example (Avatar + Cover Image):
+   router.route("/register").post(
+       upload.fields([
+           { name: "avatar", maxCount: 1 },
+           { name: "coverImage", maxCount: 1 }
+       ]),
+       registerUser
+   );
+
+
+5. CONTROLLER ACCESS
+--------------------------------------------------------------------------------
+File: src/controllers/user.controller.js
+
+Inside the controller function:
+   1. Access path: req.files?.avatar[0]?.path
+   2. Call Utility: const avatar = await uploadOnCloudinary(avatarLocalPath)
+   3. Save URL: Use avatar.url in your MongoDB User model.
+
+================================================================================
