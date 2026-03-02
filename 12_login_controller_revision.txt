@@ -1,0 +1,40 @@
+# Login Controller Revision Notes
+
+## Overview
+The `loginUser` controller is responsible for authenticating a user, generating session tokens (JWT), and setting them as secure cookies.
+
+## Logic Flow
+1. **Input Retrieval**: Extracts `email`, `username`, and `password` from the request body.
+2. **Validation**: Ensures that either a `username` or `email` is provided.
+3. **User Lookup**:
+   - Uses the MongoDB `$or` operator to find a user matching either the provided email or username.
+   - `User.findOne({ $or: [{ email }, { username }] })`
+4. **Credential Verification**:
+   - Checks if the user exists.
+   - Validates the password using the `isPasswordCorrect` method (likely using bcrypt).
+5. **Token Generation**:
+   - Generates Access and Refresh tokens using `generateAccessAndRefeshTokens`.
+   - The Refresh token is saved to the database for the user.
+6. **Response Preparation**:
+   - Retrieves the user document again, explicitly excluding sensitive fields (`password`, `refreshToken`).
+7. **Sending Response**:
+   - Sets `accessToken` and `refreshToken` in cookies.
+   - Cookie Options: `httpOnly: true` (security against XSS) and `secure: true` (HTTPS only).
+   - Returns a standard `ApiResponse` with status 200.
+
+## Key Code Snippets
+
+### Database Query ($or)
+```javascript
+const user = await User.findOne({
+    $or: [{ email }, { username }]
+});
+```
+
+### Cookie Options
+```javascript
+const options = {
+    httpOnly: true, // Prevents client-side JavaScript access
+    secure: true    // Ensures transmission over HTTPS only
+}
+```

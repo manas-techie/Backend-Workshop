@@ -1,0 +1,65 @@
+REGISTER USER CONTROLLER - REVISION NOTE
+========================================
+
+1. INPUT DATA RETRIEVAL
+-----------------------
+- Extracts `fullName`, `email`, `username`, and `password` from `req.body`.
+- These are the essential fields required to create a user account.
+
+2. VALIDATION (Basic)
+---------------------
+- Checks if any of the required fields are empty or contain only whitespace.
+- Uses `.some()` on an array of fields to efficiently check for empty strings.
+- If any field is missing, throws an `ApiError(400, "All fields are required")`.
+
+3. DUPLICATE USER CHECK
+-----------------------
+- Queries the database (`User.findOne`) to see if a user already exists with the provided `email` OR `username`.
+- If a user is found (`existedUser` is true), throws an `ApiError(409, "User with email or username already exist")`.
+- 409 Conflict is the appropriate status code for duplicates.
+
+4. FILE HANDLING (Images)
+-------------------------
+- Accesses uploaded files via `req.files` (provided by Multer middleware).
+- Retrieves the local file path for:
+  - `avatar` (Required)
+  - `coverImage` (Optional)
+- If `avatarLocalPath` is missing, throws an `ApiError(400, "Avatar is required")`.
+
+5. CLOUDINARY UPLOAD
+--------------------
+- Uploads the local files to Cloudinary using the helper function `uploadOnCloudinary`.
+- `avatar` is uploaded.
+- `coverImage` is uploaded if it exists.
+- Checks if the avatar upload object returned is valid. If not, throws `ApiError(400)`.
+
+6. DATABASE ENTRY CREATION
+--------------------------
+- Uses `User.create()` to save the new user to MongoDB.
+- Fields saved:
+  - `fullName`
+  - `avatar`: URL from Cloudinary response.
+  - `coverImage`: URL from Cloudinary response (or empty string if not provided).
+  - `email`
+  - `password`: (Middleware in User model usually hashes this before saving).
+  - `username`: Converted to lowercase for consistency.
+
+7. VERIFICATION & SANITIZATION
+------------------------------
+- Immediately fetches the newly created user from the database using `User.findById(user._id)`.
+- Uses `.select("-password -refreshToken")` to exclude sensitive information from the result.
+- This ensures the response sent back to the client does not contain the password hash or tokens.
+- If the user retrieval fails (rare), throws an `ApiError(500)`.
+
+8. SEND RESPONSE
+----------------
+- Returns a standard JSON response using `res.status(201).json(...)`.
+- Uses the `ApiResponse` class to structure the response (statusCode, data, message).
+- Status 201 Created is used for successful resource creation.
+
+KEY HELPERS USED:
+-----------------
+- `asyncHandler`: Wraps the async function to handle errors automatically.
+- `ApiError`: Standardized error class for throwing exceptions with status codes.
+- `ApiResponse`: Standardized success response class.
+- `uploadOnCloudinary`: Utility to handle file uploads to cloud storage.

@@ -1,0 +1,127 @@
+===========================================
+LOGOUT USER CONTROLLER & JWT MIDDLEWARE NOTES
+===========================================
+
+1. OVERVIEW
+-----------
+The logout functionality requires authentication to ensure only logged-in users can logout.
+This is achieved through JWT verification middleware.
+
+2. FLOW DIAGRAM
+---------------
+Client Request → Route → JWTVerify Middleware → logoutUserController → Response
+
+3. JWT VERIFY MIDDLEWARE (auth.middleware.js)
+---------------------------------------------
+Location: middlewares/auth.middleware.js
+
+How it works:
+a) Extracts token from:
+   - Cookies (req.cookies.accessToken)
+   - OR Authorization header (Bearer token)
+
+b) If no token found → Returns 401 Unauthorized
+
+c) Verifies token using jwt.verify() with ACCESS_TOKEN_SECRET
+
+d) Decodes token to get user ID
+
+e) Fetches user from database (excludes password & refreshToken)
+
+f) Attaches user object to req.user
+
+g) Calls next() to proceed to controller
+
+Code Flow:
+```
+const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "")
+↓
+jwt.verify(token, ACCESS_TOKEN_SECRET)
+↓
+User.findById(decodedToken._id)
+↓
+req.user = user
+↓
+next()
+```
+
+4. LOGOUT USER CONTROLLER
+-------------------------
+Location: controllers/user.controller.js
+
+How it works:
+a) Receives req.user from middleware (already authenticated)
+
+b) Finds user by req.user._id
+
+c) Removes refreshToken from database:
+   - Sets refreshToken to undefined/null
+   - Uses $unset or $set operator
+
+d) Clears cookies:
+   - accessToken
+   - refreshToken
+
+e) Returns success response
+
+Code Flow:
+```
+req.user._id (from middleware)
+↓
+User.findByIdAndUpdate(userId, { $unset: { refreshToken: 1 } })
+↓
+res.clearCookie("accessToken")
+res.clearCookie("refreshToken")
+↓
+Return 200 OK
+```
+
+5. ROUTE CONNECTION
+-------------------
+Location: routes/user.routes.js
+
+Connection:
+```
+router.route("/logout").post(verifyJWT, logoutUser)
+```
+
+- verifyJWT middleware runs FIRST
+- If successful, logoutUser controller runs
+- If middleware fails, controller never executes
+
+6. WHY MIDDLEWARE IS NEEDED FOR LOGOUT
+--------------------------------------
+- Ensures only authenticated users can logout
+- Provides user ID without requiring it in request body
+- Prevents unauthorized token invalidation
+- Maintains security best practices
+
+7. COOKIE OPTIONS (for clearing)
+--------------------------------
+const options = {
+    httpOnly: true,  // Not accessible via JavaScript
+    secure: true     // Only sent over HTTPS
+}
+
+8. COMPLETE REQUEST LIFECYCLE
+-----------------------------
+1. Client sends POST /api/users/logout with accessToken cookie
+2. Request hits verifyJWT middleware
+3. Middleware extracts & verifies token
+4. Middleware attaches user to request
+5. Controller receives authenticated request
+6. Controller removes refreshToken from DB
+7. Controller clears both cookies
+8. Client receives 200 success response
+9. Client is now logged out
+
+9. ERROR SCENARIOS
+------------------
+- No token provided → 401 from middleware
+- Invalid/expired token → 401 from middleware
+- User not found → 401 from middleware
+- DB update fails → 500 from controller
+
+===========================================
+END OF NOTES
+===========================================

@@ -1,0 +1,74 @@
+HTTP COOKIES IN JAVASCRIPT BACKEND DEVELOPMENT (NODE.JS / EXPRESS)
+==================================================================
+
+1. THE BASICS
+-------------
+In a JavaScript backend (like Node.js with Express), cookies are the primary way to maintain state over the stateless HTTP protocol. You send a cookie to the client's browser, the browser stores it, and it automatically sends it back to your Node server on every subsequent request to your domain.
+
+2. SETTING UP IN EXPRESS.JS
+---------------------------
+To easily read cookies coming from the frontend, you need a middleware. The standard choice in the Node ecosystem is `cookie-parser`.
+
+Installation: npm install cookie-parser
+
+Setup:
+const express = require('express');
+const cookieParser = require('cookie-parser');
+const app = express();
+
+app.use(cookieParser()); // This populates req.cookies
+
+
+3. CREATING AND SENDING COOKIES (THE RESPONSE)
+----------------------------------------------
+You set cookies using the `res.cookie(name, value, [options])` method. 
+
+Example:
+app.post('/login', (req, res) => {
+    // ... authentication logic ...
+    
+    res.cookie('sessionId', 'abc-123-xyz', {
+        httpOnly: true,  // Crucial: Hides cookie from frontend JavaScript (prevents XSS)
+        secure: true,    // Crucial: Only sends cookie over HTTPS
+        sameSite: 'lax', // Protects against CSRF attacks
+        maxAge: 3600000  // Expiration in milliseconds (1 hour)
+    });
+    
+    res.send('Logged in successfully');
+});
+
+
+4. READING COOKIES (THE REQUEST)
+--------------------------------
+Once `cookie-parser` is set up, you can read incoming cookies from the `req.cookies` object.
+
+Example:
+app.get('/dashboard', (req, res) => {
+    const session = req.cookies.sessionId;
+    
+    if (!session) {
+        return res.status(401).send('Unauthorized: No cookie found');
+    }
+    
+    // ... validate session against database ...
+    res.send('Welcome to your dashboard');
+});
+
+
+5. DELETING COOKIES
+-------------------
+To clear a cookie (e.g., when a user logs out), use `res.clearCookie(name, [options])`. You must provide the exact same options (like path and domain) you used when setting it, except for expires/maxAge.
+
+Example:
+app.post('/logout', (req, res) => {
+    res.clearCookie('sessionId', { path: '/' });
+    res.send('Logged out');
+});
+
+
+6. COOKIE SECURITY CHECKLIST FOR JS DEVELOPERS
+----------------------------------------------
+[ ] Always use `httpOnly: true` for session identifiers or auth tokens (like JWTs) stored in cookies. Never let frontend JS (like React or Vue) read them directly.
+[ ] Always use `secure: true` in production so cookies are never transmitted over unencrypted HTTP.
+[ ] Set `sameSite: 'strict'` or `sameSite: 'lax'` to prevent Cross-Site Request Forgery (CSRF).
+[ ] Use a secure, signed cookie if the frontend needs to read the cookie but shouldn't tamper with it (cookie-parser supports signed cookies using a secret key).
