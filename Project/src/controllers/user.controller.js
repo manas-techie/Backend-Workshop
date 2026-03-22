@@ -123,12 +123,17 @@ const loginUser = asyncHandeler(async (req, res) => {
 
     const { accessToken, refreshToken } = await generateAccessAndRefeshTokens(user._id);
 
-
+    // Remove password from the user object before sending response
+    // This ensures the password is never exposed in API responses
     const loggedUser = await User.findById(user._id).select("-password -refreshToken");
 
     const options = {
+        // httpOnly means the cookie cannot be accessed by JavaScript in the browser
+        // This helps protect the token from XSS attacks
         httpOnly: true,
-        secure: true
+        sameSite: "none", // Allow cross-site cookies (needed for frontend-backend communication)
+        secure: true, // Ensure the cookie is only sent over HTTPS connections
+        expires: new Date(Date.now() + process.env.COOKIE_EXPIRE * 24 * 60 * 60 * 1000),
     }
 
     return res.status(200)
@@ -196,7 +201,9 @@ const refreshAcessToken = asyncHandeler(async (req, res) => {
 
         const options = {
             httpOnly: true,
-            secure: true
+            sameSite: "none",
+            secure: true,
+            expires: new Date(Date.now() + process.env.COOKIE_EXPIRE * 24 * 60 * 60 * 1000),
         }
 
         const { accessToken, newRefreshToken } = await generateAccessAndRefeshTokens(user._id);
@@ -280,6 +287,9 @@ const updateUserAvatar = asyncHandeler(async (re, res) => {
         throw new ApiError(500, "Error While Uploading on avatar");
     }
 
+    //TODO: Delete the old avatar from cloudinary
+
+
     const user = await User.findByIdAndUpdate(
         req.user._id,
         {
@@ -326,6 +336,40 @@ const updateUserCoverImage = asyncHandeler(async (re, res) => {
         )
 })
 
+
+const getUserChannelProfile = asyncHandeler(async (req, res) => {
+    const { username } = req.params;
+
+    if (!username?.trim()) {
+        throw new ApiError(400, "username is missing");
+    }
+
+    const channel = await User.aggregate([
+        {
+            $match: {
+                username: username?.toLowerCase()
+            }
+
+        },
+        {
+            $lookup: {
+                from: "$subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+            }
+        },
+        {
+            $lookup: {
+                from: "$subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        }
+    ])
+})
+
 export {
     registerUser,
     loginUser,
@@ -335,5 +379,6 @@ export {
     getCurrentUser,
     updateAccountDetails,
     updateUserAvatar,
-    updateUserCoverImage
+    updateUserCoverImage,
+    getUserChannelProfile
 };

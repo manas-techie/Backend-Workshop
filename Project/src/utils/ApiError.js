@@ -17,7 +17,7 @@ class ApiError extends Error {
             this.stack = stack;
         }
         else {
-            Error.captureStackTrace(this, this.constructor);
+            Error.captureStackTrace(this, this.constructor); //it creates a stack trace for the error, excluding the constructor function itself from the trace. So your stack starts from the place where the error was created in app code, not from inside ErrorHandler internals.
         }
     }
 }

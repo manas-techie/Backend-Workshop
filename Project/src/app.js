@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import path from "path";
+import { __dirname } from "./constants.js";
 
 // Import the centralized error handler
 import { errorHandler } from "./middlewares/error.middleware.js";
@@ -16,13 +18,14 @@ app.use(cors(
 
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
-app.use(express.static("public"));
+app.use('/public', express.static(path.join(__dirname, '../public')));
 app.use(cookieParser());
 
 
 
 //Routes imports
 import userRouter from './routes/user.routes.js';
+
 
 
 

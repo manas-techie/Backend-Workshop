@@ -5,7 +5,12 @@
 //     }
 // };
 
+// This utility is used to handle errors in async functions automatically.
+// Normally when we use async/await in Express controllers,
+// we need to wrap them in try/catch blocks to catch errors.
 
+// Instead of writing try/catch in every controller,
+// we create this reusable function.
 const asyncHandeler = (fn) => {
   return async (req, res, next) => {
     try {
